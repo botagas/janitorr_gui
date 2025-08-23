@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Janitorr Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="system-status">
+    <div class="status-grid">
+        <div class="status-item {% if system_status.service_running %}available{% else %}unavailable{% endif %}">
+            <div class="status-header">
+                <div class="status-title">
+                    <i class="fas fa-server"></i>
+                    <h3>Service Status</h3>
+                </div>
+                {% if current_user.is_admin %}
+                <a href="{{ url_for('main.config') }}" class="config-icon" title="Configure">
+                    <i class="fas fa-wrench"></i>
+                </a>
+                {% endif %}
+            </div>
+            <div class="status-content">
+                <p class="status-text">
+                    {% if system_status.service_running %}
+                        Running
+                    {% else %}
+                        {{ system_status.service_error|default('Not Configured') }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="status-item {% if system_status.logs_available %}available{% else %}unavailable{% endif %}">
+            <div class="status-header">
+                <i class="fas fa-file-alt"></i>
+                <h3>Logs</h3>
+            </div>
+            <div class="status-content">
+                <p class="status-text">
+                    {% if system_status.logs_available %}
+                        Available
+                    {% else %}
+                        {{ system_status.logs_error|default('Not Configured') }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        {% if jellyfin_enabled %}
+        <div class="status-item {% if system_status.jellyfin_available %}available{% else %}unavailable{% endif %}">
+            <div class="status-header">
+                <i class="fas fa-film"></i>
+                <h3>Jellyfin</h3>
+            </div>
+            <div class="status-content">
+                <p class="status-text">
+                    {% if system_status.jellyfin_available %}
+                        Connected
+                    {% else %}
+                        {{ system_status.jellyfin_error|default('Not Connected') }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+    {% if not system_status.config_available %}
+<div class="alert alert-warning">
+    Cannot display media information: {{ system_status.config_error }}
+</div>
+{% elif not system_status.logs_available %}
+<div class="alert alert-warning">
+    Cannot display scheduled deletions: {{ system_status.logs_error }}
+</div>
+{% else %}
+<div class="deletion-timeline">
+    {% for date, items in deletions|dictsort %}
+    <div class="deletion-group">
+        <div class="media-container" id="media-container">
+            <div class="content-section">
+                <div class="media-header">
+                    <h2>Media Scheduled for Deletion</h2>
+                </div>
+                <div class="date-header">
+                    <h3>{{ date }}</h3>
+                </div>
+                <div class="display-controls">
+                    <div class="view-toggle">
+                        <button id="grid-view-btn" class="view-btn active" title="Grid View">
+                            <i class="fas fa-th-large"></i>
+                        </button>
+                        <button id="list-view-btn" class="view-btn" title="List View">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                    <div class="search-bar-row">
+                        <input type="text" id="media-search" class="media-search" placeholder="Search media..." aria-label="Search media">
+                    </div>
+                    <div class="media-pagination media-pagination-top" id="media-pagination-top"></div>
+                    </div>
+                <div class="media-grid" id="media-grid">
+                {% for item in items %}
+                    <div class="media-card{% if item.days_until_deletion is not none %}{% if item.days_until_deletion > 7 %} countdown-normal{% elif item.days_until_deletion > 0 %} countdown-warning{% elif item.days_until_deletion == 0 %} countdown-danger{% else %} countdown-overdue{% endif %}{% endif %}"
+                        data-days-left="{% if item.days_until_deletion is not none %}{% if item.days_until_deletion > 0 %}{{ item.days_until_deletion }} d. left{% elif item.days_until_deletion == 0 %}Today!{% else %}-{{ item.days_until_deletion|abs }} d. over{% endif %}{% else %}0 d. left{% endif %}"
+                        data-age="{% if item.age_days is not none %}{{ item.age_days }}{% else %}0{% endif %}"
+                        data-media-type="{% if media_info.get(item.title) %}{{ media_info[item.title].info.Type }}{% else %}Unknown{% endif %}"
+                        {% if media_info.get(item.title, {}).get('image_path') and media_info[item.title].info.Id %}data-media-id="{{ media_info[item.title].info.Id }}"{% endif %}>
+                        <div class="media-thumbnail">
+                            <div class="no-thumbnail">Loading...</div>
+                            <!-- Overlays are positioned relative to the thumbnail -->
+                            <div class="countdown-overlay">
+                                {% if item.days_until_deletion is not none %}
+                                    {% if item.days_until_deletion > 0 %}{{ item.days_until_deletion }} d. left
+                                    {% elif item.days_until_deletion == 0 %}Today!
+                                    {% else %}{{ item.days_until_deletion|abs }} d. over
+                                    {% endif %}
+                                {% else %}Unknown
+                                {% endif %}
+                            </div>
+                            <div class="age-overlay">{{ item.age_days if item.age_days is not none else 0 }} d. old</div>
+                            <div class="added-overlay">Added on {{ item.added_date }}</div>
+                        </div>
+                        <div class="media-info">
+                            <h3 class="media-title">{{ item.title }}</h3>
+                            <div class="media-stats">
+                                <div class="stat-item">
+                                    <div class="stat-label">Deletion</div>
+                                    <div class="stat-value{% if item.days_until_deletion is not none %}{% if item.days_until_deletion > 7 %} countdown-normal{% elif item.days_until_deletion > 0 %} countdown-warning{% elif item.days_until_deletion == 0 %} countdown-danger{% else %} countdown-overdue{% endif %}{% endif %}">
+                                        {% if item.days_until_deletion is not none %}
+                                            {% if item.days_until_deletion > 0 %}{{ item.days_until_deletion }} d. left
+                                            {% elif item.days_until_deletion == 0 %}Today!
+                                            {% else %}{{ item.days_until_deletion|abs }} d. over
+                                            {% endif %}
+                                        {% else %}Unknown
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Age</div>
+                                    <div class="stat-value">{{ item.age_days if item.age_days is not none else 0 }} d.</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Added</div>
+                                    <div class="stat-value">{{ item.added_date }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Type</div>
+                                    <div class="stat-value">{% if media_info.get(item.title) %}{{ media_info[item.title].info.Type }}{% else %}Unknown{% endif %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="media-pagination media-pagination-bottom" id="media-pagination-bottom"></div>
+                </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

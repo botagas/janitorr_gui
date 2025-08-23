@@ -1,0 +1,2009 @@
+{% extends "base.html" %}
+
+{% block title %}Janitorr Configuration{% endblock %}
+
+{% block content %}
+<div class="config-container">
+    <h1>Configuration</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="config-tabs">
+        <nav class="tab-nav">
+            <button class="tab-button active" data-tab="yaml">YAML Editor</button>
+            <button class="tab-button" data-tab="service">GUI Settings</button>
+            <button class="tab-button" data-tab="logs">Logs</button>
+            <button class="tab-button" data-tab="jellyfin">Jellyfin</button>
+            <button class="tab-button" data-tab="jellystat">Jellystat</button>
+            <button class="tab-button" data-tab="arr">*Arr Apps</button>
+            <button class="tab-button" data-tab="media">Media Settings</button>
+        </nav>
+        
+        <!-- YAML Editor Tab -->
+        <div class="tab-content active" id="yaml-tab">
+            <form method="POST" action="{{ url_for('main.config') }}">
+                <div class="form-group">
+                    <label for="config">Configuration (YAML format):</label>
+                    <textarea name="config" id="config" rows="25" class="form-control yaml-editor">{{ config_yaml }}</textarea>
+                    <small class="form-text text-muted">Edit the complete configuration in YAML format. Be careful with indentation.</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetConfig()">Reset</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- GUI Settings Tab -->
+        <div class="tab-content" id="service-tab">
+            <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                <input type="hidden" name="section" value="gui-service">
+                <h3>GUI Service Configuration</h3>
+                <p class="section-description">These settings help the GUI locate and interact with your Janitorr installation.</p>
+                
+                {% if gui_config_error %}
+                    <div class="alert alert-error">
+                        <strong>GUI Configuration Error:</strong> {{ gui_config_error }}
+                    </div>
+                {% endif %}
+                
+                {% if gui_config %}
+                    <div class="section-description">
+                        <strong>Current GUI Config Status:</strong> Loaded successfully. 
+                        Config file location: {{ gui_config.get('_config_path', 'Not specified') }}
+                    </div>
+                {% else %}
+                    <div class="alert alert-error">
+                        <strong>Warning:</strong> GUI configuration not loaded. Using defaults.
+                    </div>
+                {% endif %}
+                
+                <div class="form-group">
+                    <label for="janitorr_config_path">Janitorr Config File Path:</label>
+                    <input type="text" id="janitorr_config_path" name="gui.janitorr_config_path" class="form-control" 
+                           value="{{ gui_config.get('gui', {}).get('janitorr_config_path', '/opt/janitorr/application.yml') if gui_config else '/opt/janitorr/application.yml' }}">
+                    <small class="form-text">Full path to Janitorr's application.yml configuration file</small>
+                </div>
+                <div class="form-group">
+                    <label for="janitorr_log_path">Janitorr Log File Path:</label>
+                    <input type="text" id="janitorr_log_path" name="gui.janitorr_log_path" class="form-control" 
+                           value="{{ gui_config.get('gui', {}).get('janitorr_log_path', '/var/log/janitorr/janitorr.log') if gui_config else '/var/log/janitorr/janitorr.log' }}">
+                    <small class="form-text">Full path to Janitorr's log file</small>
+                </div>
+                <div class="form-group">
+                    <label for="working_directory">Janitorr Working Directory:</label>
+                    <input type="text" id="working_directory" name="gui.janitorr_working_directory" class="form-control" 
+                           value="{{ gui_config.get('gui', {}).get('janitorr_working_directory', '/opt/janitorr') if gui_config else '/opt/janitorr' }}">
+                    <small class="form-text">Directory where Janitorr is installed</small>
+                </div>
+                <div class="form-group number-input">
+                    <label for="auto_refresh">Auto Refresh Interval (seconds):</label>
+                    <input type="number" id="auto_refresh" name="gui.auto_refresh_interval" class="form-control" min="10" max="300"
+                           value="{{ gui_config.get('gui', {}).get('auto_refresh_interval', 30) if gui_config else 30 }}">
+                    <small class="form-text">How often to refresh the dashboard automatically (10-300 seconds)</small>
+                </div>
+                
+                <h4>Authentication Settings</h4>
+                <div class="auth-section">
+                    <div class="form-group">
+                        <label for="auth_mode">Authentication Mode:</label>
+                        <select id="auth_mode" name="gui.auth_mode" class="form-control">
+                            <option value="none" {% if gui_config and gui_config.get('gui', {}).get('auth_mode') == 'none' %}selected{% endif %}>No Authentication</option>
+                            <option value="legacy" {% if gui_config and gui_config.get('gui', {}).get('auth_mode') == 'legacy' %}selected{% endif %}>Legacy Authentication</option>
+                            <option value="ldap" {% if gui_config and gui_config.get('gui', {}).get('auth_mode') == 'ldap' %}selected{% endif %}>LDAP Authentication</option>
+                            <option value="both" {% if gui_config and gui_config.get('gui', {}).get('auth_mode') == 'both' %}selected{% endif %}>LDAP with Legacy Fallback</option>
+                        </select>
+                        <small class="form-text">Choose how users will authenticate to access the GUI</small>
+                    </div>
+                </div>
+                
+                <div class="auth-section" id="legacyAuthSection">
+                    <h5>Legacy Authentication</h5>
+                    <div class="form-group">
+                        <label for="legacy_username">Admin Username:</label>
+                        <input type="text" id="legacy_username" name="gui.legacy_auth.username" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('legacy_auth', {}).get('username', 'admin') if gui_config else 'admin' }}">
+                        <small class="form-text">Username for legacy authentication</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="legacy_password">Admin Password:</label>
+                        <input type="password" id="legacy_password" name="gui.legacy_auth.password" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('legacy_auth', {}).get('password', '') if gui_config else '' }}">
+                        <small class="form-text">Password for legacy authentication (leave empty to keep current)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="gui.legacy_auth.enabled" {% if gui_config and gui_config.get('gui', {}).get('legacy_auth', {}).get('enabled', True) %}checked{% endif %}>
+                            Enable Legacy Authentication
+                        </label>
+                        <small class="form-text">When enabled, allows login with username/password</small>
+                    </div>
+                </div>
+                
+                <div class="auth-section" id="ldapAuthSection">
+                    <h5>LDAP Configuration</h5>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="gui.ldap.enabled" {% if gui_config and gui_config.get('gui', {}).get('ldap', {}).get('enabled') %}checked{% endif %}>
+                            Enable LDAP Authentication
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldap_server">LDAP Server:</label>
+                        <input type="text" id="ldap_server" name="gui.ldap.server" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('server', 'localhost') if gui_config else 'localhost' }}"
+                               placeholder="localhost">
+                        <small class="form-text">LDAP server hostname or IP address</small>
+                    </div>
+                    <div class="form-group number-input">
+                        <label for="ldap_port">LDAP Port:</label>
+                        <input type="number" id="ldap_port" name="gui.ldap.port" class="form-control" min="1" max="65535"
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('port', 389) if gui_config else 389 }}">
+                        <small class="form-text">LDAP server port (389 for LDAP, 636 for LDAPS)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldap_base_dn">Base DN:</label>
+                        <input type="text" id="ldap_base_dn" name="gui.ldap.base_dn" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('base_dn', '') if gui_config else '' }}"
+                               placeholder="DC=example,DC=com">
+                        <small class="form-text">LDAP base distinguished name for user searches</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldap_user_filter">User Filter:</label>
+                        <input type="text" id="ldap_user_filter" name="gui.ldap.user_filter" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('user_filter', '(sAMAccountName={username})') if gui_config else '(sAMAccountName={username})' }}">
+                        <small class="form-text">LDAP filter for finding users. Use {username} as placeholder</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldap_bind_dn">Bind DN (optional):</label>
+                        <input type="text" id="ldap_bind_dn" name="gui.ldap.bind_dn" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('bind_dn', '') if gui_config else '' }}"
+                               placeholder="CN=service-account,OU=Users,DC=example,DC=com">
+                        <small class="form-text">Service account DN for binding (leave empty for anonymous bind)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldap_bind_password">Bind Password:</label>
+                        <input type="password" id="ldap_bind_password" name="gui.ldap.bind_password" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('bind_password', '') if gui_config else '' }}">
+                        <small class="form-text">Password for service account (leave empty to keep current)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="ldap_admin_group">Admin Group DN (optional):</label>
+                        <input type="text" id="ldap_admin_group" name="gui.ldap.admin_group" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('ldap', {}).get('admin_group', '') if gui_config else '' }}"
+                               placeholder="CN=Janitorr-Admins,OU=Groups,DC=example,DC=com">
+                        <small class="form-text">LDAP group DN for admin users (leave empty to allow all authenticated users)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="gui.ldap.use_ssl" {% if gui_config and gui_config.get('gui', {}).get('ldap', {}).get('use_ssl') %}checked{% endif %}>
+                            Use SSL/TLS
+                        </label>
+                        <small class="form-text">Enable secure LDAP connection (LDAPS)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="gui.ldap.verify_ssl" {% if gui_config and gui_config.get('gui', {}).get('ldap', {}).get('verify_ssl', True) %}checked{% endif %}>
+                            Verify SSL Certificate
+                        </label>
+                        <small class="form-text">Verify SSL certificate when using LDAPS (recommended)</small>
+                    </div>
+                </div>
+                
+                <div class="auth-section">
+                    <h5>Session Configuration</h5>
+                    <div class="form-group">
+                        <label for="session_secret">Session Secret Key:</label>
+                        <input type="password" id="session_secret" name="gui.session.secret_key" class="form-control" 
+                               value="{{ gui_config.get('gui', {}).get('session', {}).get('secret_key', '') if gui_config else '' }}"
+                               placeholder="Enter a secure secret key for sessions">
+                        <small class="form-text">Secret key for session encryption (leave empty to generate automatically)</small>
+                    </div>
+                    <div class="form-group number-input">
+                        <label for="session_timeout">Session Timeout (hours):</label>
+                        <input type="number" id="session_timeout" name="gui.session.timeout_hours" class="form-control" min="1" max="720"
+                               value="{{ gui_config.get('gui', {}).get('session', {}).get('timeout_hours', 24) if gui_config else 24 }}">
+                        <small class="form-text">How long sessions remain valid (1-720 hours, default: 24)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="gui.session.secure_cookies" {% if gui_config and gui_config.get('gui', {}).get('session', {}).get('secure_cookies', False) %}checked{% endif %}>
+                            Secure Cookies (HTTPS only)
+                        </label>
+                        <small class="form-text">Enable secure cookies when using HTTPS (recommended for production)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="gui.session.remember_me" {% if gui_config and gui_config.get('gui', {}).get('session', {}).get('remember_me', True) %}checked{% endif %}>
+                            Enable "Remember Me" Option
+                        </label>
+                        <small class="form-text">Allow users to stay logged in for extended periods</small>
+                    </div>
+                </div>
+                
+                <!-- Configuration validation warnings -->
+                <div id="authConfigWarning" class="alert alert-warning" style="display: none;">
+                    <strong>Configuration Notice:</strong>
+                    <span id="authWarningText"></span>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save GUI Config</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Logs Tab -->
+        <div class="tab-content" id="logs-tab">
+            <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                <input type="hidden" name="section" value="logs">
+                <h3>Janitorr Logging Configuration</h3>
+                <p class="section-description">Configure Janitorr's logging behavior. Changes will be applied to Janitorr's application.yml file.</p>
+                <div class="form-group">
+                    <label for="log_level">Janitorr Log Level:</label>
+                    <select id="log_level" name="logging.level.com.github.schaka" class="form-control">
+                        <option value="INFO" {% if config and config.get('logging', {}).get('level', {}).get('com.github.schaka') == 'INFO' %}selected{% endif %}>INFO</option>
+                        <option value="DEBUG" {% if config and config.get('logging', {}).get('level', {}).get('com.github.schaka') == 'DEBUG' %}selected{% endif %}>DEBUG</option>
+                        <option value="WARN" {% if config and config.get('logging', {}).get('level', {}).get('com.github.schaka') == 'WARN' %}selected{% endif %}>WARN</option>
+                        <option value="ERROR" {% if config and config.get('logging', {}).get('level', {}).get('com.github.schaka') == 'ERROR' %}selected{% endif %}>ERROR</option>
+                        <option value="TRACE" {% if config and config.get('logging', {}).get('level', {}).get('com.github.schaka') == 'TRACE' %}selected{% endif %}>TRACE</option>
+                    </select>
+                    <small class="form-text">Current setting: {{ config.get('logging', {}).get('level', {}).get('com.github.schaka', 'INFO') if config else 'INFO' }}</small>
+                </div>
+                <div class="form-group">
+                    <label for="log_threshold">File Logging Threshold:</label>
+                    <select id="log_threshold" name="logging.threshold.file" class="form-control">
+                        <option value="NONE" {% if config and config.get('logging', {}).get('threshold', {}).get('file') == 'NONE' %}selected{% endif %}>NONE (Disabled)</option>
+                        <option value="TRACE" {% if config and config.get('logging', {}).get('threshold', {}).get('file') == 'TRACE' %}selected{% endif %}>TRACE</option>
+                        <option value="DEBUG" {% if config and config.get('logging', {}).get('threshold', {}).get('file') == 'DEBUG' %}selected{% endif %}>DEBUG</option>
+                        <option value="INFO" {% if config and config.get('logging', {}).get('threshold', {}).get('file') == 'INFO' %}selected{% endif %}>INFO</option>
+                        <option value="WARN" {% if config and config.get('logging', {}).get('threshold', {}).get('file') == 'WARN' %}selected{% endif %}>WARN</option>
+                        <option value="ERROR" {% if config and config.get('logging', {}).get('threshold', {}).get('file') == 'ERROR' %}selected{% endif %}>ERROR</option>
+                    </select>
+                    <small class="form-text">Controls what gets written to log files. Set to TRACE to enable file logging.</small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Logging Config</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Jellyfin Tab -->
+        <div class="tab-content" id="jellyfin-tab">
+            <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                <input type="hidden" name="section" value="jellyfin">
+                <h3>Jellyfin Configuration</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="clients.jellyfin.enabled" {% if config and config.get('clients', {}).get('jellyfin', {}).get('enabled') %}checked{% endif %}>
+                        Enable Jellyfin Integration
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="jellyfin_url">Server URL:</label>
+                    <input type="url" id="jellyfin_url" name="clients.jellyfin.url" class="form-control" 
+                           value="{{ config.get('clients', {}).get('jellyfin', {}).get('url', '') if config else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="jellyfin_api_key">API Key:</label>
+                    <input type="password" id="jellyfin_api_key" name="clients.jellyfin.api-key" class="form-control" 
+                           value="{{ config.get('clients', {}).get('jellyfin', {}).get('api-key', '') if config else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="clients.jellyfin.delete" {% if config and config.get('clients', {}).get('jellyfin', {}).get('delete') %}checked{% endif %}>
+                        Enable Deletion
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Jellyfin Config</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Jellystat Tab -->
+        <div class="tab-content" id="jellystat-tab">
+            <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                <input type="hidden" name="section" value="jellystat">
+                <h3>Jellystat Configuration</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="clients.jellystat.enabled" {% if config and config.get('clients', {}).get('jellystat', {}).get('enabled') %}checked{% endif %}>
+                        Enable Jellystat Integration
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="jellystat_url">Server URL:</label>
+                    <input type="url" id="jellystat_url" name="clients.jellystat.url" class="form-control" 
+                           value="{{ config.get('clients', {}).get('jellystat', {}).get('url', '') if config else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="jellystat_api_key">API Key:</label>
+                    <input type="password" id="jellystat_api_key" name="clients.jellystat.api-key" class="form-control" 
+                           value="{{ config.get('clients', {}).get('jellystat', {}).get('api-key', '') if config else '' }}">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Jellystat Config</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- *Arr Apps Tab -->
+        <div class="tab-content" id="arr-tab">
+            <h3>*Arr Applications</h3>
+            <div class="arr-section">
+                <h4>Sonarr</h4>
+                <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                    <input type="hidden" name="section" value="sonarr">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="clients.sonarr.enabled" {% if config and config.get('clients', {}).get('sonarr', {}).get('enabled') %}checked{% endif %}>
+                            Enable Sonarr
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="sonarr_url">URL:</label>
+                        <input type="url" id="sonarr_url" name="clients.sonarr.url" class="form-control" 
+                               value="{{ config.get('clients', {}).get('sonarr', {}).get('url', '') if config else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="sonarr_api_key">API Key:</label>
+                        <input type="password" id="sonarr_api_key" name="clients.sonarr.api-key" class="form-control" 
+                               value="{{ config.get('clients', {}).get('sonarr', {}).get('api-key', '') if config else '' }}">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Sonarr Config</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="arr-section">
+                <h4>Radarr</h4>
+                <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                    <input type="hidden" name="section" value="radarr">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="clients.radarr.enabled" {% if config and config.get('clients', {}).get('radarr', {}).get('enabled') %}checked{% endif %}>
+                            Enable Radarr
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="radarr_url">URL:</label>
+                        <input type="url" id="radarr_url" name="clients.radarr.url" class="form-control" 
+                               value="{{ config.get('clients', {}).get('radarr', {}).get('url', '') if config else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="radarr_api_key">API Key:</label>
+                        <input type="password" id="radarr_api_key" name="clients.radarr.api-key" class="form-control" 
+                               value="{{ config.get('clients', {}).get('radarr', {}).get('api-key', '') if config else '' }}">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Radarr Config</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Media Settings Tab -->
+        <div class="tab-content" id="media-tab">
+            <form method="POST" action="{{ url_for('main.update_config_section') }}">
+                <input type="hidden" name="section" value="media">
+                <h3>Media Deletion Settings</h3>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="application.dry-run" {% if config and config.get('application', {}).get('dry-run') %}checked{% endif %}>
+                        Dry Run Mode (Test only, don't actually delete)
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="application.media-deletion.enabled" {% if config and config.get('application', {}).get('media-deletion', {}).get('enabled') %}checked{% endif %}>
+                        Enable Media Deletion
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="leaving_soon">Leaving Soon Period:</label>
+                    <input type="text" id="leaving_soon" name="application.leaving-soon" class="form-control" 
+                           value="{{ config.get('application', {}).get('leaving-soon', '30d') if config else '30d' }}">
+                </div>
+                <div class="form-group">
+                    <label for="exclusion_tag">Exclusion Tag:</label>
+                    <input type="text" id="exclusion_tag" name="application.exclusion-tag" class="form-control" 
+                           value="{{ config.get('application', {}).get('exclusion-tag', 'janitorr_keep') if config else 'janitorr_keep' }}">
+                </div>
+                <div class="form-group">
+                    <label for="movie_expiration">Movie Expiration (Default):</label>
+                    {% set movie_exp_map = config.get('application', {}).get('media-deletion', {}).get('movie-expiration', {}) if config else {} %}
+                    {% set movie_default = movie_exp_map.get(10, '120d') if movie_exp_map else '120d' %}
+                    <input type="text" id="movie_expiration" name="application.media-deletion.movie-expiration.default" class="form-control" 
+                           value="{{ movie_default }}">
+                    <small class="form-text">
+                        Default duration for movie expiration (e.g., 120d, 3m, 1y). 
+                        {% if movie_exp_map %}
+                            Current config: {% for percent, duration in movie_exp_map.items() %}{{ percent }}%→{{ duration }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            No values currently set
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label for="season_expiration">Season Expiration (Default):</label>
+                    {% set season_exp_map = config.get('application', {}).get('media-deletion', {}).get('season-expiration', {}) if config else {} %}
+                    {% set season_default = season_exp_map.get(10, '120d') if season_exp_map else '120d' %}
+                    <input type="text" id="season_expiration" name="application.media-deletion.season-expiration.default" class="form-control" 
+                           value="{{ season_default }}">
+                    <small class="form-text">
+                        Default duration for season expiration (e.g., 120d, 6m, 1y). 
+                        {% if season_exp_map %}
+                            Current config: {% for percent, duration in season_exp_map.items() %}{{ percent }}%→{{ duration }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% else %}
+                            No values currently set
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Media Config</button>
+                </div>
+            </form>
+        </div>
+
+<!-- YAML Diff Modal -->
+<div id="yamlDiffModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Configuration Changes Preview</h2>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="sectionInfo" class="section-info"></div>
+            <p>Review the changes that will be made to your configuration:</p>
+            
+            <!-- Diff Summary Panel -->
+            <div class="diff-summary-panel" id="diffSummaryPanel" style="display: none;">
+                <div class="summary-header">
+                    <h4>Changes Summary</h4>
+                    <div class="summary-stats">
+                        <span id="addedCount" class="stat-item added">+0 Added</span>
+                        <span id="removedCount" class="stat-item removed">-0 Removed</span>
+                        <span id="modifiedCount" class="stat-item modified">~0 Modified</span>
+                    </div>
+                </div>
+                <div class="summary-navigation" id="summaryNavigation">
+                    <!-- Navigation items will be populated here -->
+                </div>
+            </div>
+            
+            <div class="diff-container">
+                <div class="diff-view-controls">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="compactDiffToggle">
+                        <label class="form-check-label" for="compactDiffToggle">
+                            Show only changes
+                        </label>
+                    </div>
+                    <div class="context-controls" id="contextControls" style="display: none;">
+                        <label for="contextLines" class="form-label">Context lines:</label>
+                        <select id="contextLines" class="form-select form-select-sm" style="width: auto; display: inline-block;">
+                            <option value="0">No context</option>
+                            <option value="1">1 line</option>
+                            <option value="3" selected>3 lines</option>
+                            <option value="5">5 lines</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="diff-columns">
+                    <div class="diff-column">
+                        <h3>Current Configuration</h3>
+                        <pre id="currentYaml" class="yaml-display"></pre>
+                    </div>
+                    <div class="diff-column">
+                        <h3>New Configuration</h3>
+                        <pre id="newYaml" class="yaml-display"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="cancelChanges" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="applyChanges" class="btn btn-primary">Apply Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    </div> <!-- end config-tabs -->
+</div> <!-- end config-container -->
+
+<style>
+.config-container {
+    max-width: 1000px;
+    margin: 2rem auto;
+    padding: 1rem;
+}
+
+/* Responsive tab navigation */
+.config-tabs {
+    margin-top: 2rem;
+}
+
+.tab-nav {
+    display: flex;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border-radius: 12px 12px 0 0;
+    overflow-x: auto;
+    border-bottom: 2px solid #374151;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+}
+
+.tab-nav::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tab-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tab-nav::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 2px;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    color: #94a3b8;
+    font-weight: 500;
+    border-radius: 8px 8px 0 0;
+    flex-shrink: 0;
+    min-width: max-content;
+}
+
+.tab-button:hover {
+    background: rgba(139, 92, 246, 0.1);
+    color: #cbd5e1;
+}
+
+.tab-button.active {
+    background: linear-gradient(135deg, #8b5cf6, #a855f7);
+    color: white;
+    border-radius: 8px 8px 0 0;
+    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
+}
+
+.tab-content {
+    display: none;
+    padding: 2rem;
+    background: linear-gradient(145deg, #1e293b, #334155);
+    border: 1px solid #374151;
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    color: #e2e8f0;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Mobile-responsive tab navigation */
+@media (max-width: 768px) {
+    .config-tabs {
+        margin-top: 1rem;
+    }
+    
+    .tab-nav {
+        border-radius: 8px 8px 0 0;
+        gap: 0;
+    }
+    
+    .tab-button {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        min-width: auto;
+        flex: 1;
+        text-align: center;
+    }
+    
+    .tab-content {
+        padding: 1rem;
+        border-radius: 0 0 8px 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tab-button {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .tab-content {
+        padding: 0.75rem;
+    }
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    color: #e2e8f0;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Responsive form controls with proper width behavior */
+.form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    margin-top: 0.25rem;
+    background: #0f172a;
+    color: #e2e8f0;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+/* Constrain only number inputs for better UX */
+.form-control[type="number"] {
+    max-width: 10%;
+}
+
+/* Specific width constraints for different field types - removed hardcoded max-widths */
+.form-control.textarea,
+.yaml-editor {
+    max-width: 100%;  /* Full width for textarea/YAML editor */
+}
+
+/* Remove hardcoded max-widths - let containers control sizing */
+.form-control[type="text"],
+.form-control[type="password"],
+.form-control[type="url"],
+.form-control select {
+    max-width: 100%;
+}
+
+/* Remove auth section max-width override */
+.auth-section .form-control {
+    max-width: 100%;
+}
+
+.auth-section .form-control[type="number"] {
+    max-width: 10%;
+}
+
+/* Ensure form text appears below number inputs */
+.form-group:has(input[type="number"]) {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group:has(input[type="number"]) .form-text {
+    margin-top: 0.5rem;
+    margin-left: 0;
+}
+
+/* Fallback for browsers that don't support :has() */
+.form-group.number-input {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.number-input .form-text {
+    margin-top: 0.5rem;
+    margin-left: 0;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .form-control[type="number"] {
+        max-width: 10%;  /* Still constrain numbers on mobile */
+    }
+    
+    .auth-section .form-control[type="number"] {
+        max-width: 10%;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-control {
+        padding: 0.5rem;  /* Smaller padding on very small screens */
+        font-size: 16px;  /* Prevent zoom on iOS */
+    }
+    
+    .form-control[type="number"] {
+        max-width: 10%;
+    }
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.form-control option {
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+/* Checkbox styling */
+/* Responsive container and layout */
+.config-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.tab-content {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    color: #e2e8f0;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* Responsive grid for form sections */
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.form-col {
+    flex: 1;
+    min-width: 250px;
+}
+
+@media (max-width: 768px) {
+    .config-container {
+        padding: 0.5rem;
+    }
+    
+    .form-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .form-col {
+        min-width: 100%;
+    }
+    
+    .tab-content {
+        padding: 1rem 0.5rem;
+    }
+}
+
+/* Ensure consistent form element sizing across all tabs */
+.tab-content .form-control,
+.tab-content select,
+.tab-content input,
+.tab-content textarea {
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Section styling improvements */
+.arr-section,
+.auth-section {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .arr-section,
+    .auth-section {
+        margin: 1rem 0;
+        padding: 1rem;
+    }
+}
+
+.form-group input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #8b5cf6;
+    transform: scale(1.2);
+}
+
+.yaml-editor {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
+    white-space: pre;
+    min-height: 400px;
+    font-size: 0.9rem;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 1rem;
+    line-height: 1.5;
+}
+
+.form-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #8b5cf6, #a855f7);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #7c3aed, #9333ea);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #374151, #4b5563);
+    color: #e2e8f0;
+    border: 1px solid #6b7280;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #4b5563, #6b7280);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(75, 85, 99, 0.3);
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+}
+
+.arr-section {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    border: 1px solid #374151;
+}
+
+.arr-section h4 {
+    margin-top: 0;
+    color: #e2e8f0;
+}
+
+.form-text {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.alert {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #059669, #10b981);
+    border: 1px solid #10b981;
+    color: #ecfdf5;
+}
+
+.alert-error {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    border: 1px solid #ef4444;
+    color: #fef2f2;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+    background-color: #1e1e2e;
+    margin: 2% auto;
+    padding: 0;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #8b5cf6, #a855f7);
+    color: white;
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.close {
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover {
+    opacity: 0.7;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    height: calc(90vh - 140px);
+    overflow-y: auto;
+}
+
+.diff-container {
+    margin: 1rem 0;
+    width: 100%;
+    overflow: hidden;
+}
+
+.diff-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    width: 100%;
+    min-width: 0; /* Allows grid items to shrink below their content size */
+}
+
+.diff-column {
+    min-width: 0; /* Allows the column to shrink */
+    overflow: hidden; /* Prevents content from overflowing */
+}
+
+.diff-column h3 {
+    color: #cdd6f4;
+    margin: 0 0 0.5rem 0;
+    padding: 0.5rem;
+    background: #313244;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.yaml-display {
+    background: #181825;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #cdd6f4;
+    height: 40vh;
+    width: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    box-sizing: border-box;
+}
+
+/* Basic YAML syntax highlighting */
+.yaml-display .yaml-key {
+    color: #89b4fa;
+}
+
+.yaml-display .yaml-value {
+    color: #a6e3a1;
+}
+
+.yaml-display .yaml-string {
+    color: #f9e2af;
+}
+
+.yaml-display .yaml-number {
+    color: #fab387;
+}
+
+.yaml-display .yaml-comment {
+    color: #6c7086;
+    font-style: italic;
+}
+
+/* Diff highlighting styles */
+.diff-summary-panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.summary-header h4 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.summary-stats {
+    display: flex;
+    gap: 1rem;
+}
+
+.stat-item {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.stat-item.added {
+    background: rgba(166, 227, 161, 0.2);
+    color: #a6e3a1;
+}
+
+.stat-item.removed {
+    background: rgba(243, 139, 168, 0.2);
+    color: #f38ba8;
+}
+
+.stat-item.modified {
+    background: rgba(249, 226, 175, 0.2);
+    color: #f9e2af;
+}
+
+.summary-navigation {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.nav-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    margin-bottom: 0.25rem;
+    background: var(--surface-2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.nav-item:hover {
+    background: var(--surface-3);
+}
+
+.nav-item .change-type {
+    padding: 0.125rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.nav-item .change-type.added {
+    background: #a6e3a1;
+    color: #1e1e2e;
+}
+
+.nav-item .change-type.removed {
+    background: #f38ba8;
+    color: #1e1e2e;
+}
+
+.nav-item .change-type.modified {
+    background: #f9e2af;
+    color: #1e1e2e;
+}
+
+/* Enhanced YAML diff highlighting */
+.yaml-display .diff-line {
+    display: block;
+    margin: 0;
+    padding: 0.125rem 0.5rem;
+    border-left: 3px solid transparent;
+}
+
+.yaml-display .diff-line.added {
+    background: rgba(166, 227, 161, 0.15);
+    border-left-color: #a6e3a1;
+}
+
+.yaml-display .diff-line.removed {
+    background: rgba(243, 139, 168, 0.15);
+    border-left-color: #f38ba8;
+}
+
+.yaml-display .diff-line.modified {
+    background: rgba(249, 226, 175, 0.15);
+    border-left-color: #f9e2af;
+}
+
+.yaml-display .diff-line.context {
+    background: transparent;
+    opacity: 0.7;
+}
+
+.yaml-display .diff-line:target {
+    background: rgba(116, 199, 236, 0.3);
+    animation: highlight-pulse 2s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+    0%, 100% { background: rgba(116, 199, 236, 0.3); }
+    50% { background: rgba(116, 199, 236, 0.5); }
+}
+
+/* Diff view controls */
+.diff-view-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #313244;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.form-check-label {
+    color: #e2e8f0;
+    margin-left: 0.5rem;
+    cursor: pointer;
+}
+
+.form-check-input {
+    accent-color: #8b5cf6;
+}
+
+.context-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.context-controls .form-label {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #94a3b8;
+}
+
+.form-select-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    background: #0f172a;
+    border: 1px solid #374151;
+    color: #e2e8f0;
+    border-radius: 4px;
+}
+
+.form-select-sm option {
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+/* Compact diff styles */
+.diff-hunk {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.diff-hunk-header {
+    background: var(--surface-2);
+    padding: 0.5rem 1rem;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.diff-hunk-content {
+    background: var(--surface-0);
+}
+
+.diff-line-number {
+    display: inline-block;
+    width: 50px;
+    text-align: right;
+    padding-right: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    user-select: none;
+}
+
+.diff-prefix {
+    display: inline-block;
+    width: 20px;
+    text-align: center;
+    font-weight: bold;
+    user-select: none;
+}
+
+.diff-line.added .diff-prefix {
+    color: #a6e3a1;
+}
+
+.diff-line.removed .diff-prefix {
+    color: #f38ba8;
+}
+
+.diff-line.modified .diff-prefix {
+    color: #f9e2af;
+}
+
+.no-changes {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #45475a;
+}
+
+.btn-secondary {
+    background: #6c757d;
+    border: 1px solid #6c757d;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    border-color: #5a6268;
+}
+
+.section-info {
+    background: #313244;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    color: #a6e3a1;
+    font-weight: 500;
+}
+
+.section-info::before {
+    content: "ℹ️ ";
+    margin-right: 0.5rem;
+}
+
+.section-description {
+    background: #313244;
+    border-left: 4px solid #8b5cf6;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    color: #cdd6f4;
+    font-size: 0.9rem;
+    border-radius: 0 4px 4px 0;
+}
+
+.auth-section {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    border: 1px solid #374151;
+}
+
+.auth-section h4,
+.auth-section h5 {
+    margin-top: 0;
+    color: #8b5cf6;
+    border-bottom: 1px solid #374151;
+    padding-bottom: 0.5rem;
+}
+
+.auth-section h5 {
+    font-size: 1.1rem;
+    color: #a855f7;
+}
+
+.auth-section .form-group {
+    margin-bottom: 1rem;
+}
+
+.auth-section .form-text {
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+</style>
+
+<script>
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const targetTab = this.getAttribute('data-tab');
+            
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked button and corresponding content
+            this.classList.add('active');
+            document.getElementById(targetTab + '-tab').classList.add('active');
+        });
+    });
+
+    // Handle form submissions with diff preview using event delegation
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        
+        console.log('Form submission detected:', {
+            method: form.method,
+            methodUpperCase: form.method.toUpperCase(),
+            action: form.action,
+            section: form.querySelector('input[name="section"]')?.value
+        });
+        
+        // Debug the criteria check step by step
+        const isPost = form.method.toUpperCase() === 'POST';
+        const hasAction = !!form.action;
+        const actionIncludesUpdateSection = form.action && form.action.includes('update-section');
+        
+        console.log('Criteria check:', {
+            isPost: isPost,
+            hasAction: hasAction,
+            actionIncludesUpdateSection: actionIncludesUpdateSection,
+            fullAction: form.action
+        });
+        
+        // Check if this is a config update form
+        if (isPost && hasAction && actionIncludesUpdateSection) {
+            console.log('Form submission intercepted for:', form.querySelector('input[name="section"]')?.value);
+            e.preventDefault();
+            console.log('Calling showConfigDiff...');
+            showConfigDiff(form);
+        } else {
+            console.log('Form submission not intercepted - does not match criteria');
+        }
+    });
+
+    // Also bind to existing forms at page load for debugging
+    const forms = document.querySelectorAll('form[method="POST"][action*="update-section"]');
+    console.log(`Found ${forms.length} forms for diff preview at page load`); // Debug log
+    forms.forEach((form, index) => {
+        console.log(`Form ${index + 1}: section="${form.querySelector('input[name="section"]')?.value}", action="${form.action}"`); // Debug log
+    });
+
+    // Modal functionality
+    const modal = document.getElementById('yamlDiffModal');
+    const closeBtn = document.querySelector('.close');
+    const cancelBtn = document.getElementById('cancelChanges');
+    const applyBtn = document.getElementById('applyChanges');
+    const compactToggle = document.getElementById('compactDiffToggle');
+    const contextControls = document.getElementById('contextControls');
+    const contextLines = document.getElementById('contextLines');
+
+    closeBtn.addEventListener('click', () => modal.style.display = 'none');
+    cancelBtn.addEventListener('click', () => modal.style.display = 'none');
+
+    // Handle compact diff toggle
+    compactToggle.addEventListener('change', function() {
+        contextControls.style.display = this.checked ? 'flex' : 'none';
+        if (window.currentDiffData) {
+            updateDiffDisplay();
+        }
+    });
+
+    // Handle context lines change
+    contextLines.addEventListener('change', function() {
+        if (window.currentDiffData && compactToggle.checked) {
+            updateDiffDisplay();
+        }
+    });
+
+    // Handle authentication mode changes
+    const authModeSelect = document.getElementById('auth_mode');
+    const legacyAuthSection = document.getElementById('legacyAuthSection');
+    const ldapAuthSection = document.getElementById('ldapAuthSection');
+
+    function updateAuthSections() {
+        const authMode = authModeSelect.value;
+        
+        // Hide all sections initially
+        legacyAuthSection.style.display = 'none';
+        ldapAuthSection.style.display = 'none';
+        
+        // Show relevant sections based on mode
+        switch(authMode) {
+            case 'legacy':
+                legacyAuthSection.style.display = 'block';
+                break;
+            case 'ldap':
+                ldapAuthSection.style.display = 'block';
+                break;
+            case 'both':
+                legacyAuthSection.style.display = 'block';
+                ldapAuthSection.style.display = 'block';
+                break;
+            case 'none':
+                // Both sections remain hidden
+                break;
+        }
+    }
+
+    if (authModeSelect) {
+        authModeSelect.addEventListener('change', updateAuthSections);
+        // Initialize on page load
+        updateAuthSections();
+    }
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Initialize window.currentForm
+    window.currentForm = null;
+    
+    applyBtn.addEventListener('click', function() {
+        if (window.currentForm) {
+            console.log('Applying changes with form:', window.currentForm);
+            
+            // Create a new form submission without preventDefault
+            const formData = new FormData(window.currentForm);
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = window.currentForm.action;
+            
+            // Add all form data
+            for (let [key, value] of formData.entries()) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
+            }
+            
+            // Close modal before submitting
+            modal.style.display = 'none';
+            
+            document.body.appendChild(form);
+            form.submit();
+        } else {
+            console.error('No form reference stored for apply button');
+            alert('Error: No form data available to apply changes.');
+        }
+    });
+});
+
+async function showConfigDiff(form) {
+    console.log('showConfigDiff called with form:', form);
+    try {
+        // Get current configuration
+        const currentYaml = `{{ config_yaml | safe }}`;
+        console.log('Current YAML length:', currentYaml.length);
+        
+        // Get section being modified
+        const sectionInput = form.querySelector('input[name="section"]');
+        const sectionName = sectionInput ? sectionInput.value : 'Unknown';
+        const sectionDisplayName = sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
+        console.log('Section name:', sectionName);
+        
+        // Show section info
+        if (sectionName === 'gui-service') {
+            document.getElementById('sectionInfo').textContent = `Modifying GUI Settings (stored separately from Janitorr config)`;
+        } else {
+            document.getElementById('sectionInfo').textContent = `Modifying ${sectionDisplayName} configuration section`;
+        }
+        
+        // Prepare form data for preview
+        const formData = new FormData(form);
+        console.log('Form data prepared, sending to /config/preview');
+        
+        // Send request to get preview of changes
+        const response = await fetch('/config/preview', {
+            method: 'POST',
+            body: formData
+        });
+        
+        console.log('Preview response status:', response.status);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Preview request failed:', errorText);
+            throw new Error(`Failed to generate preview: ${response.status} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Preview data received:', data);
+        
+        // For GUI settings, show appropriate current config
+        let currentConfig = currentYaml;
+        if (sectionName === 'gui-service') {
+            // Show current GUI config as JSON
+            try {
+                const guiConfigData = JSON.parse('{{ gui_config | tojson | safe }}');
+                currentConfig = `# Current GUI Configuration (stored as JSON)\n${JSON.stringify(guiConfigData, null, 2)}`;
+            } catch (e) {
+                console.error('Error parsing GUI config:', e);
+                currentConfig = "# Current GUI Configuration\n# (Unable to display current config)";
+            }
+        }
+        
+        // Analyze differences and create enhanced display
+        const diffAnalysis = analyzeDifferences(currentConfig, data.new_yaml);
+        
+        // Store data globally for toggle functionality
+        window.currentDiffData = {
+            currentConfig: currentConfig,
+            newConfig: data.new_yaml,
+            diffAnalysis: diffAnalysis
+        };
+        
+        // Display enhanced diff in modal
+        updateDiffDisplay();
+        
+        // Show diff summary if there are changes
+        if (diffAnalysis.changes.length > 0) {
+            displayDiffSummary(diffAnalysis);
+        }
+        
+        // Store form reference for apply button
+        window.currentForm = form;
+        
+        // Show modal
+        document.getElementById('yamlDiffModal').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error showing config diff:', error);
+        alert('Error generating configuration preview. The form will be submitted directly.');
+        form.submit();
+    }
+}
+
+function analyzeDifferences(currentText, newText) {
+    const currentLines = currentText.split('\n');
+    const newLines = newText.split('\n');
+    const changes = [];
+    
+    // Simple line-by-line diff analysis
+    const maxLines = Math.max(currentLines.length, newLines.length);
+    
+    for (let i = 0; i < maxLines; i++) {
+        const currentLine = currentLines[i] || '';
+        const newLine = newLines[i] || '';
+        
+        if (currentLine !== newLine) {
+            if (!currentLines[i] && newLines[i]) {
+                // Added line
+                changes.push({
+                    type: 'added',
+                    lineNumber: i + 1,
+                    content: newLine,
+                    description: `Added: ${newLine.trim()}`
+                });
+            } else if (currentLines[i] && !newLines[i]) {
+                // Removed line
+                changes.push({
+                    type: 'removed',
+                    lineNumber: i + 1,
+                    content: currentLine,
+                    description: `Removed: ${currentLine.trim()}`
+                });
+            } else {
+                // Modified line
+                changes.push({
+                    type: 'modified',
+                    lineNumber: i + 1,
+                    oldContent: currentLine,
+                    newContent: newLine,
+                    description: `Modified: ${extractYamlKey(newLine) || 'line ' + (i + 1)}`
+                });
+            }
+        }
+    }
+    
+    return {
+        changes: changes,
+        stats: {
+            added: changes.filter(c => c.type === 'added').length,
+            removed: changes.filter(c => c.type === 'removed').length,
+            modified: changes.filter(c => c.type === 'modified').length
+        }
+    };
+}
+
+function extractYamlKey(line) {
+    const match = line.match(/^\s*([a-zA-Z_-]+):/);
+    return match ? match[1] : null;
+}
+
+function updateDiffDisplay() {
+    const { currentConfig, newConfig, diffAnalysis } = window.currentDiffData;
+    const isCompact = document.getElementById('compactDiffToggle').checked;
+    
+    if (isCompact) {
+        displayCompactDiff(currentConfig, newConfig, diffAnalysis);
+    } else {
+        displayEnhancedDiff(currentConfig, newConfig, diffAnalysis);
+    }
+}
+
+function displayCompactDiff(currentText, newText, diffAnalysis) {
+    const currentLines = currentText.split('\n');
+    const newLines = newText.split('\n');
+    const contextLinesCount = parseInt(document.getElementById('contextLines').value);
+    
+    // Create hunks for changed regions
+    const hunks = createDiffHunks(diffAnalysis.changes, currentLines, newLines, contextLinesCount);
+    
+    // Generate compact diff HTML
+    const currentCompactHtml = generateCompactDiffHtml(hunks, 'current');
+    const newCompactHtml = generateCompactDiffHtml(hunks, 'new');
+    
+    document.getElementById('currentYaml').innerHTML = currentCompactHtml;
+    document.getElementById('newYaml').innerHTML = newCompactHtml;
+}
+
+function createDiffHunks(changes, currentLines, newLines, contextLines) {
+    if (changes.length === 0) return [];
+    
+    const hunks = [];
+    let currentHunk = null;
+    
+    // Sort changes by line number
+    const sortedChanges = [...changes].sort((a, b) => a.lineNumber - b.lineNumber);
+    
+    for (const change of sortedChanges) {
+        const lineIndex = change.lineNumber - 1;
+        
+        // Calculate hunk boundaries
+        const startLine = Math.max(0, lineIndex - contextLines);
+        const endLine = Math.min(
+            Math.max(currentLines.length, newLines.length) - 1,
+            lineIndex + contextLines
+        );
+        
+        // Check if we can merge with previous hunk
+        if (currentHunk && startLine <= currentHunk.endLine + 1) {
+            // Extend current hunk
+            currentHunk.endLine = endLine;
+            currentHunk.changes.push(change);
+        } else {
+            // Create new hunk
+            if (currentHunk) hunks.push(currentHunk);
+            currentHunk = {
+                startLine: startLine,
+                endLine: endLine,
+                changes: [change]
+            };
+        }
+    }
+    
+    if (currentHunk) hunks.push(currentHunk);
+    
+    return hunks;
+}
+
+function generateCompactDiffHtml(hunks, side) {
+    if (hunks.length === 0) {
+        return '<div class="no-changes">No changes to display</div>';
+    }
+    
+    let html = '';
+    
+    for (const hunk of hunks) {
+        // Hunk header
+        const startLine = hunk.startLine + 1;
+        const endLine = hunk.endLine + 1;
+        html += `<div class="diff-hunk">`;
+        html += `<div class="diff-hunk-header">@@ Lines ${startLine}-${endLine} @@</div>`;
+        html += `<div class="diff-hunk-content">`;
+        
+        // Get the appropriate lines for this side
+        const lines = side === 'current' ? 
+            window.currentDiffData.currentConfig.split('\n') : 
+            window.currentDiffData.newConfig.split('\n');
+        
+        // Display lines in hunk
+        for (let i = hunk.startLine; i <= hunk.endLine; i++) {
+            if (i >= lines.length) break;
+            
+            const line = lines[i] || '';
+            const lineNumber = i + 1;
+            const change = hunk.changes.find(c => c.lineNumber === lineNumber);
+            
+            let className = 'diff-line context';
+            let prefix = ' ';
+            
+            if (change) {
+                if (change.type === 'added') {
+                    className = 'diff-line added';
+                    prefix = '+';
+                } else if (change.type === 'removed') {
+                    className = 'diff-line removed';
+                    prefix = '-';
+                } else if (change.type === 'modified') {
+                    className = 'diff-line modified';
+                    prefix = '~';
+                }
+            }
+            
+            html += `<span class="${className}" id="${side}-line-${lineNumber}">`;
+            html += `<span class="diff-line-number">${lineNumber}</span>`;
+            html += `<span class="diff-prefix">${prefix}</span>`;
+            html += highlightYaml(line);
+            html += `</span>\n`;
+        }
+        
+        html += `</div></div>`;
+    }
+    
+    return html;
+}
+
+function displayEnhancedDiff(currentText, newText, diffAnalysis) {
+    const currentLines = currentText.split('\n');
+    const newLines = newText.split('\n');
+    
+    // Enhanced highlighting for current config
+    const enhancedCurrent = currentLines.map((line, index) => {
+        const change = diffAnalysis.changes.find(c => c.lineNumber === index + 1);
+        let className = 'diff-line context';
+        
+        if (change) {
+            className = `diff-line ${change.type}`;
+        }
+        
+        return `<span class="${className}" id="current-line-${index + 1}">${highlightYaml(line)}</span>`;
+    }).join('\n');
+    
+    // Enhanced highlighting for new config
+    const enhancedNew = newLines.map((line, index) => {
+        const change = diffAnalysis.changes.find(c => c.lineNumber === index + 1);
+        let className = 'diff-line context';
+        
+        if (change) {
+            className = `diff-line ${change.type}`;
+        }
+        
+        return `<span class="${className}" id="new-line-${index + 1}">${highlightYaml(line)}</span>`;
+    }).join('\n');
+    
+    document.getElementById('currentYaml').innerHTML = enhancedCurrent;
+    document.getElementById('newYaml').innerHTML = enhancedNew;
+}
+
+function displayDiffSummary(diffAnalysis) {
+    const summaryPanel = document.getElementById('diffSummaryPanel');
+    const addedCount = document.getElementById('addedCount');
+    const removedCount = document.getElementById('removedCount');
+    const modifiedCount = document.getElementById('modifiedCount');
+    const navigation = document.getElementById('summaryNavigation');
+    
+    // Update stats
+    addedCount.textContent = `+${diffAnalysis.stats.added} Added`;
+    removedCount.textContent = `-${diffAnalysis.stats.removed} Removed`;
+    modifiedCount.textContent = `~${diffAnalysis.stats.modified} Modified`;
+    
+    // Create navigation items
+    navigation.innerHTML = '';
+    diffAnalysis.changes.forEach((change, index) => {
+        const navItem = document.createElement('div');
+        navItem.className = 'nav-item';
+        navItem.onclick = () => scrollToChange(change.lineNumber);
+        
+        navItem.innerHTML = `
+            <span>${change.description}</span>
+            <span class="change-type ${change.type}">${change.type.toUpperCase()}</span>
+        `;
+        
+        navigation.appendChild(navItem);
+    });
+    
+    // Show summary panel
+    summaryPanel.style.display = 'block';
+}
+
+function scrollToChange(lineNumber) {
+    const currentElement = document.getElementById(`current-line-${lineNumber}`);
+    const newElement = document.getElementById(`new-line-${lineNumber}`);
+    
+    // Scroll both panels simultaneously using smooth scrollIntoView
+    if (currentElement && newElement) {
+        // Use scrollIntoView for smooth scrolling
+        currentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        newElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Briefly highlight both targets
+        [currentElement, newElement].forEach(element => {
+            element.style.background = 'rgba(116, 199, 236, 0.5)';
+            setTimeout(() => {
+                element.style.background = '';
+            }, 2000);
+        });
+    } else if (newElement) {
+        // Fallback to just the new element if current doesn't exist
+        newElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        newElement.style.background = 'rgba(116, 199, 236, 0.5)';
+        setTimeout(() => {
+            newElement.style.background = '';
+        }, 2000);
+    }
+}
+
+function highlightYaml(yamlText) {
+    // Basic YAML syntax highlighting
+    return yamlText
+        .replace(/^(\s*)([a-zA-Z_-]+):/gm, '$1<span class="yaml-key">$2</span>:')
+        .replace(/:\s*([0-9]+)$/gm, ': <span class="yaml-number">$1</span>')
+        .replace(/:\s*([0-9]+[a-z]+)$/gm, ': <span class="yaml-value">$1</span>')
+        .replace(/:\s*([a-zA-Z_-]+)$/gm, ': <span class="yaml-value">$1</span>')
+        .replace(/:\s*"([^"]*)"$/gm, ': <span class="yaml-string">"$1"</span>')
+        .replace(/:\s*'([^']*)'$/gm, ': <span class="yaml-string">\'$1\'</span>')
+        .replace(/^\s*#(.*)$/gm, '<span class="yaml-comment">#$1</span>');
+}
+
+function resetConfig() {
+    if (confirm('Are you sure you want to reset the configuration? This will reload the current saved configuration.')) {
+        location.reload();
+    }
+}
+
+// Authentication configuration validation
+function validateAuthConfig() {
+    const authMode = document.getElementById('auth_mode').value;
+    const legacyEnabled = document.querySelector('input[name="gui.legacy_auth.enabled"]').checked;
+    const ldapEnabled = document.querySelector('input[name="gui.ldap.enabled"]').checked;
+    const warningDiv = document.getElementById('authConfigWarning');
+    const warningText = document.getElementById('authWarningText');
+    
+    // Determine what the auto-detected mode would be
+    let autoMode = 'none';
+    if (legacyEnabled && ldapEnabled) {
+        autoMode = 'both';
+    } else if (ldapEnabled) {
+        autoMode = 'ldap';
+    } else if (legacyEnabled) {
+        autoMode = 'legacy';
+    }
+    
+    let warning = '';
+    
+    // Show info about auto-detection vs manual selection
+    if (authMode !== autoMode) {
+        if (autoMode === 'none') {
+            warning = `Authentication mode is set to "${getAuthModeLabel(authMode)}" but no authentication methods are enabled. Enable legacy and/or LDAP authentication, or the system will default to "No Authentication".`;
+        } else {
+            warning = `Authentication mode is manually set to "${getAuthModeLabel(authMode)}" but based on enabled methods, it would auto-detect as "${getAuthModeLabel(autoMode)}". The manual setting will override auto-detection.`;
+        }
+    } else {
+        // Configuration is consistent - show helpful info
+        warning = `Authentication mode "${getAuthModeLabel(authMode)}" will be auto-detected based on your enabled authentication methods.`;
+        warningDiv.className = 'alert alert-info';
+    }
+    
+    if (warning) {
+        warningText.textContent = warning;
+        warningDiv.style.display = 'block';
+        if (!warning.includes('will be auto-detected')) {
+            warningDiv.className = 'alert alert-warning';
+        }
+    } else {
+        warningDiv.style.display = 'none';
+    }
+}
+
+function getAuthModeLabel(mode) {
+    const labels = {
+        'none': 'No Authentication',
+        'legacy': 'Legacy Authentication', 
+        'ldap': 'LDAP Authentication',
+        'both': 'LDAP with Legacy Fallback'
+    };
+    return labels[mode] || mode;
+}
+
+// Update auth mode when enable flags change
+function updateAuthModeFromFlags() {
+    const legacyEnabled = document.querySelector('input[name="gui.legacy_auth.enabled"]').checked;
+    const ldapEnabled = document.querySelector('input[name="gui.ldap.enabled"]').checked;
+    const authModeSelect = document.getElementById('auth_mode');
+    
+    // Auto-determine the mode
+    let autoMode = 'none';
+    if (legacyEnabled && ldapEnabled) {
+        autoMode = 'both';
+    } else if (ldapEnabled) {
+        autoMode = 'ldap';
+    } else if (legacyEnabled) {
+        autoMode = 'legacy';
+    }
+    
+    // Update the select to show the auto-determined value
+    authModeSelect.value = autoMode;
+    
+    // Trigger validation
+    validateAuthConfig();
+}
+
+// Add event listeners for authentication validation
+document.addEventListener('DOMContentLoaded', function() {
+    // Initial validation
+    validateAuthConfig();
+    
+    // When auth mode changes manually, update the enable flags
+    document.getElementById('auth_mode').addEventListener('change', function() {
+        const authMode = this.value;
+        const legacyCheckbox = document.querySelector('input[name="gui.legacy_auth.enabled"]');
+        const ldapCheckbox = document.querySelector('input[name="gui.ldap.enabled"]');
+        
+        // Update enable flags based on selected auth mode
+        if (authMode === 'none') {
+            legacyCheckbox.checked = false;
+            ldapCheckbox.checked = false;
+        } else if (authMode === 'legacy') {
+            legacyCheckbox.checked = true;
+            ldapCheckbox.checked = false;
+        } else if (authMode === 'ldap') {
+            legacyCheckbox.checked = false;
+            ldapCheckbox.checked = true;
+        } else if (authMode === 'both') {
+            legacyCheckbox.checked = true;
+            ldapCheckbox.checked = true;
+        }
+        
+        validateAuthConfig();
+    });
+    
+    // When enable flags change, update auth mode automatically
+    document.querySelector('input[name="gui.legacy_auth.enabled"]').addEventListener('change', updateAuthModeFromFlags);
+    document.querySelector('input[name="gui.ldap.enabled"]').addEventListener('change', updateAuthModeFromFlags);
+});
+</script>
+{% endblock %}

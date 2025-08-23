@@ -1,0 +1,39 @@
+[Unit]
+Description=Janitorr GUI - Web interface for Janitorr media deletion manager
+After=network.target janitorr.service
+Wants=janitorr.service
+
+[Service]
+Type=simple
+User=janitorr
+Group=janitorr
+WorkingDirectory=/var/www/janitorr-gui
+Environment=FLASK_APP=run.py
+Environment=FLASK_ENV=production
+Environment=PYTHONPATH=/var/www/janitorr-gui/venv/bin/python3
+Environment=JANITORR_CONFIG_PATH=/var/www/janitorr/application.yml
+Environment=JANITORR_LOG_PATH=/var/log/janitorr/janitorr.log
+
+# Secret key for Flask session security and CSRF protection
+# Generate one using: python scripts/generate_key.py
+Environment=SECRET_KEY=your-generated-secret-key-here
+
+ExecStart=/var/www/janitorr-gui/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:8977 \
+    --access-logfile /var/log/janitorr/gui-access.log \
+    --error-logfile /var/log/janitorr/gui-error.log \
+    'app:create_app()'
+
+# Restart the service if it fails
+Restart=always
+RestartSec=10
+
+# Basic security measures
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

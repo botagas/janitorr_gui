@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="login-container">
+    <h2>Login</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else ('info' if category == 'info' else 'danger') }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {% if auth_mode == 'none' %}
+        <div class="alert alert-info">
+            <p>No authentication is configured. Click below to continue.</p>
+        </div>
+        <form method="POST">
+            <input type="hidden" name="username" value="admin">
+            <input type="hidden" name="password" value="">
+            <button type="submit" class="btn btn-primary">Continue</button>
+        </form>
+    {% else %}
+        <form method="POST">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label" title="Keep me logged in for longer">
+                    Remember Me
+                    <input type="checkbox" name="remember" value="1">
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}
