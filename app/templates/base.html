@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{{ body_class|default('') }}">
     {% if current_user.is_authenticated %}
     <header class="top-nav">
         <div class="nav-brand">

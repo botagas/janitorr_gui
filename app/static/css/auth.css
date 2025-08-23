@@ -1,7 +1,11 @@
-body {
+
+body.login-page {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+body.login-page main {
+    width: 100% !important;
 }
 
 .login-container {
