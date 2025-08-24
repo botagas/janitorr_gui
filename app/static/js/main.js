@@ -226,10 +226,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 mediaContainer.classList.add('list-view');
                 gridViewBtn.classList.remove('active');
                 listViewBtn.classList.add('active');
+                // Reset font size for all media-info h3 (undo shrinking)
+                document.querySelectorAll('.media-info h3').forEach(title => {
+                    title.style.fontSize = '';
+                });
             } else {
                 mediaContainer.classList.remove('list-view');
                 gridViewBtn.classList.add('active');
                 listViewBtn.classList.remove('active');
+                // Re-apply shrinking for grid view
+                shrinkMediaTitles();
             }
             // Save preference to localStorage
             localStorage.setItem('mediaView', view);
