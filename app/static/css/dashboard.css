@@ -1,3 +1,62 @@
+/* --- Status components moved from style.css --- */
+.system-status {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: linear-gradient(145deg, #1e293b, #334155);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid #374151;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+}
+
+.status-item {
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px;
+}
+
+.status-item.available {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #064e3b, #065f46);
+}
+
+.status-item.unavailable {
+    border-color: #ef4444;
+    background: linear-gradient(135deg, #7f1d1d, #991b1b);
+}
+
+.status-item h3 {
+    margin: 0;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem; /* Increased from 1rem */
+}
+
+.status-item h3 i {
+    font-size: 1.2rem; /* Keep service status icon at reduced size */
+    color: #8b5cf6;
+}
+
+.status-item p {
+    margin: 0;
+    font-size: 1rem; /* Increased from 0.85rem */
+    color: #94a3b8;
+    align-self: flex-end; /* Align to bottom of container */
+    text-align: right;
+    font-weight: 500;
+}
 .system-status {
     padding: 2rem;
     max-width: 1200px;
@@ -21,12 +80,6 @@
     text-align: center;
     font-weight: 600;
     font-size: 1.75rem;
-}
-
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
 }
 
 .status-item {

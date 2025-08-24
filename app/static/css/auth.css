@@ -50,13 +50,14 @@ body.login-page main {
 
 /* Special styling for checkbox labels */
 .form-group .checkbox-label {
-    display: block;
+    display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
     margin-bottom: 0;
     white-space: nowrap;
     width: fit-content;
+    flex-wrap: nowrap;
 }
 
 .form-control {
@@ -131,8 +132,8 @@ body.login-page main {
 .checkbox-label input[type="checkbox"] {
     accent-color: #8b5cf6;
     transform: scale(1.1);
-    margin: 0;
-    flex-shrink: 0;
+    margin: 0 0.5rem;
+    flex-shrink: 1;
 }
 
 .checkbox-label {
@@ -155,7 +156,7 @@ body.login-page main {
     }
     
     .checkbox-label {
-        white-space: normal;  /* Allow wrapping on very small screens */
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        align-items: flex-start;
     }
 }

@@ -1,3 +1,9 @@
+@media (min-width: 769px) and (max-width: 822px) {
+    .media-container:not(.list-view) .media-card {
+        flex: 0 0 calc((100% - 1.5rem) / 2);
+        max-width: calc((100% - 1.5rem) / 2);
+    }
+}
 .search-bar-row {
         display: flex;
         justify-content: flex-end;
@@ -66,64 +72,6 @@
     cursor: not-allowed;
 }
 /* Status styles */
-.system-status {
-    margin-bottom: 2rem;
-    padding: 1rem;
-    background: linear-gradient(145deg, #1e293b, #334155);
-    border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    border: 1px solid #374151;
-}
-
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-}
-
-.status-item {
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid #374151;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-height: 120px;
-}
-
-.status-item.available {
-    border-color: #10b981;
-    background: linear-gradient(135deg, #064e3b, #065f46);
-}
-
-.status-item.unavailable {
-    border-color: #ef4444;
-    background: linear-gradient(135deg, #7f1d1d, #991b1b);
-}
-
-.status-item h3 {
-    margin: 0;
-    color: #e2e8f0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1.25rem; /* Increased from 1rem */
-}
-
-.status-item h3 i {
-    font-size: 1.2rem; /* Keep service status icon at reduced size */
-    color: #8b5cf6;
-}
-
-.status-item p {
-    margin: 0;
-    font-size: 1rem; /* Increased from 0.85rem */
-    color: #94a3b8;
-    align-self: flex-end; /* Align to bottom of container */
-    text-align: right;
-    font-weight: 500;
-}
 
 .alert {
     padding: 1rem;
@@ -283,7 +231,8 @@ main {
         -webkit-line-clamp: 2 !important; /* Clamp to 2 lines on mobile */
         line-clamp: 2 !important;
         text-align: center;
-        margin: 0.5rem 0 0 0;
+        margin: 0;
+        align-content: center;
         width: auto !important; /* Avoid width:100% overflow bugs */
         max-width: 100% !important;
         box-sizing: border-box !important;
@@ -323,6 +272,36 @@ main {
 
 /* Mobile-only list view layout - only for actual mobile phones */
 @media (max-width: 480px) {
+    /* Vertically center grid view media titles on mobile */
+    .media-container:not(.list-view) .media-info {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        min-height: 3.8rem !important;
+        max-height: 3.8rem !important;
+        height: 3.8rem !important;
+        padding: 1rem !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+    .media-container:not(.list-view) .media-info h3,
+    .media-container:not(.list-view) .media-title {
+        margin: 0 !important;
+        align-self: center !important;
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        text-align: center !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+        height: auto !important;
+        max-height: 100% !important;
+    }
     /* --- General mobile layout tweaks --- */
     .media-header {
         padding: 0 0.25rem;
@@ -390,6 +369,7 @@ main {
         overflow-wrap: anywhere !important;
     }
     .media-container.list-view .media-info {
+        max-height: fit-content;
         width: 100% !important;
         min-width: 0 !important; /* Allow children to shrink */
         text-align: center !important;
@@ -523,10 +503,6 @@ main {
 /* Grid view: show title in media-info, not as media-title */
 .media-title {
     display: none;
-}
-
-.media-info h3 {
-    display: block;
 }
 
 /* List view styles - Jellyseerr inspired */
@@ -750,11 +726,17 @@ body.debug-overlays .added-overlay {
 }
 
 .media-info {
+    display: flex;
+    justify-content: center;
+    align-content: center;
     padding: 1rem;
     position: relative;
     z-index: 1; /* ensure title sits above thumbnail image on Safari */
     width: auto; /* avoid inheriting any 100% that could cause overflow */
     max-width: 100%;
+    height: 3.8rem;
+    max-height: 3.8rem;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
@@ -764,6 +746,14 @@ body.debug-overlays .added-overlay {
     font-size: 0.95rem;
     font-weight: 600;
     line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 100%;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    align-content: center;
 }
 
 /* Configuration form */

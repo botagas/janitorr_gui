@@ -61,7 +61,31 @@ document.addEventListener('DOMContentLoaded', () => {
         thumbnailContainer.prepend(img);
     });
     
-    // Handle configuration form submission
+
+    // Auto-shrink media-info h3 font size to fit container (grid-view only)
+    function shrinkMediaTitles() {
+        // Only target grid-view: .media-container:not(.list-view) .media-info h3
+        const titles = document.querySelectorAll('.media-container:not(.list-view) .media-info h3');
+        titles.forEach(title => {
+            title.style.fontSize = '';
+            const maxFont = 0.95; // rem, match CSS default
+            const minFont = 0.7; // rem
+            let fontSize = maxFont;
+            title.style.fontSize = fontSize + 'rem';
+            // Only shrink if text overflows vertically (multi-line)
+            let iterations = 0;
+            if (title.scrollHeight > title.clientHeight + 2) {
+                while (title.scrollHeight > title.clientHeight + 2 && fontSize > minFont && iterations < 8) {
+                    fontSize -= 0.05;
+                    title.style.fontSize = fontSize + 'rem';
+                    iterations++;
+                }
+            }
+        });
+    }
+    // Run on DOMContentLoaded and after renderPage (if paginated)
+    shrinkMediaTitles();
+
     const configForm = document.getElementById('config-form');
     if (configForm) {
         configForm.addEventListener('submit', async (e) => {
@@ -144,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', () => {
             currentPage = 1;
             renderPage();
+            shrinkMediaTitles();
         });
     }
 
