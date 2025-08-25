@@ -13,10 +13,7 @@ Environment=FLASK_ENV=production
 Environment=PYTHONPATH=/var/www/janitorr-gui/venv/bin/python3
 Environment=JANITORR_CONFIG_PATH=/var/www/janitorr/application.yml
 Environment=JANITORR_LOG_PATH=/var/log/janitorr/janitorr.log
-
-# Secret key for Flask session security and CSRF protection
-# Generate one using: python scripts/generate_key.py
-Environment=SECRET_KEY=your-generated-secret-key-here
+Environment=SECRET_KEY=your-secret-key-here
 
 ExecStart=/var/www/janitorr-gui/venv/bin/gunicorn \
     --workers 2 \
