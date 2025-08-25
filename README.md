@@ -3,10 +3,20 @@
 
 A simple Flask-based GUI for Janitorr to view scheduled media deletions and manage configuration.
 
+## Features
+
+- View scheduled media deletions from Janitorr in a user-friendly dashboard
+- Edit Janitorr configuration directly from the web interface (YAML editor and tabbed forms)
+- Comparison tool for changes done in config page
+- LDAP and legacy authentication
+- Auto-refresh dashboard for up-to-date status
+- Light and dark theme support
+- Made to work as a systemd service
+
 ## Requirements
 
 - Python 3.8+
-- Janitorr installed and running
+- Janitorr instance
 - Access to Janitorr's config and log files
 
 ## Quick Start
@@ -89,9 +99,12 @@ janitorr_gui/
 
 ### Login Page
 ![Login Page](screenshots/login.png)
+Login is available via LDAP or legacy authentication
 
 ### Dashboard
 ![Dashboard](screenshots/dashboard.png)
+Sample entries are provided in the screenshot for demonstration purposes only
 
 ### Config Tabs
 ![Config Tabs](screenshots/config.png)
+Configuration is possible via separate tabs or YAML editor right in the dashboard
