@@ -52,10 +52,11 @@ The app will be available at http://localhost:5000
 | JANITORR_LOG_PATH         | Yes      | /var/log/janitorr/janitorr.log | Path to Janitorr's log file                      |
 | JANITORR_WORKING_DIR      | No       | /var/www/janitorr   | Janitorr working directory                       |
 | GUI_AUTO_REFRESH          | No       | 60              | Dashboard auto-refresh interval (seconds)         |
-| GUI_LEGACY_AUTH_ENABLED   | No       | false           | Enable legacy (username/password) auth            |
+| GUI_LEGACY_AUTH_ENABLED   | No       | true           | Enable legacy (username/password) auth            |
 | GUI_LDAP_ENABLED          | No       | false           | Enable LDAP authentication                       |
 
-**Note:** Only the variables marked "Yes" under Required are strictly necessary for the GUI to function. Others are optional and control features or appearance.
+> [!NOTE]
+> More variables can be configured, for more info please refer to the [.env.example](.env.example) file.
 
 ## Authentication
 
