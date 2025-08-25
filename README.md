@@ -84,3 +84,14 @@ janitorr_gui/
 ├── requirements.txt
 └── run.py
 ```
+
+## Screenshots
+
+### Login Page
+![Login Page](screenshots/login.png)
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### Config Tabs
+![Config Tabs](screenshots/config.png)
