@@ -93,6 +93,11 @@
                 <div class="auth-section">
                     <div class="form-group">
                         <label for="auth_mode">Authentication Mode:</label>
+                        <!-- Configuration validation warnings -->
+                        <div id="authConfigWarning" class="alert alert-warning" style="display: none;">
+                            <strong>Configuration Notice:</strong>
+                            <span id="authWarningText"></span>
+                        </div>
                         <select id="auth_mode" name="gui.auth_mode" class="form-control">
                             <option value="none" {% if gui_config and gui_config.get('gui', {}).get('auth_mode') == 'none' %}selected{% endif %}>No Authentication</option>
                             <option value="legacy" {% if gui_config and gui_config.get('gui', {}).get('auth_mode') == 'legacy' %}selected{% endif %}>Legacy Authentication</option>
@@ -128,11 +133,6 @@
                 
                 <div class="auth-section" id="ldapAuthSection">
                     <h5>LDAP Configuration</h5>
-                    <!-- Configuration validation warnings -->
-                    <div id="authConfigWarning" class="alert alert-warning" style="display: none;">
-                        <strong>Configuration Notice:</strong>
-                        <span id="authWarningText"></span>
-                    </div>
                     <div class="form-group">
                         <label>
                             <input type="checkbox" name="gui.ldap.enabled" {% if gui_config and gui_config.get('gui', {}).get('ldap', {}).get('enabled') %}checked{% endif %}>
