@@ -1,7 +1,7 @@
 
 # Janitorr GUI
 
-A simple Flask-based GUI for Janitorr to view scheduled media deletions and manage configuration.
+A simple Flask-based GUI for Janitorr to view scheduled media deletions and manage configuration. Currently only supports Jellyfin.
 
 ## Features
 
@@ -41,7 +41,7 @@ A simple Flask-based GUI for Janitorr to view scheduled media deletions and mana
 The app will be available at http://localhost:5000
 
 > [!NOTE]
-> An example systemd service is provided in [janitorr-gui.service](/contrib/janitorr-gui.service) file.
+> An example systemd service is provided in [janitorr-gui.service](/conf/janitorr-gui.service) file.
 
 ## Environment Variables
 
@@ -68,31 +68,6 @@ Enable authentication by setting the relevant variables in your `.env` file:
 
 For production, use a WSGI server (e.g., gunicorn) and a reverse proxy (e.g., nginx). Set environment variables in your systemd service or environment, or in `.env`.
 
-## Project Structure
-
-```
-janitorr_gui/
-├── app/
-│   ├── __init__.py
-│   ├── routes.py
-│   ├── config.py
-│   ├── jellyfin_client.py
-│   ├── templates/
-│   │   ├── base.html
-│   │   ├── index.html
-│   │   └── config.html
-│   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css
-│   │   └── js/
-│   │       └── main.js
-│   └── utils/
-│       ├── config_parser.py
-│       └── log_parser.py
-├── requirements.txt
-└── run.py
-```
-
 ## Screenshots
 
 ### Login Page
@@ -106,3 +81,45 @@ Sample entries are provided in the screenshot for demonstration purposes only
 ### Config Tabs
 ![Config Tabs](screenshots/config.png)
 Configuration is possible via separate tabs or YAML editor right in the dashboard
+
+## Project Structure
+
+```
+janitorr_gui/
+├── app/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── jellyfin_client.py
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   └── main.py
+│   ├── static/
+│   │   ├── css/
+│   │   │   ├── auth.css
+│   │   │   ├── dashboard.css
+│   │   │   ├── navigation.css
+│   │   │   └── style.css
+│   │   └── js/
+│   │       └── main.js
+│   ├── templates/
+│   │   ├── base.html
+│   │   ├── config_tabs.html
+│   │   ├── index.html
+│   │   └── login.html
+│   └── utils/
+│       ├── config_parser.py
+│       ├── gui_config.py
+│       ├── ldap_auth.py
+│       ├── log_parser.py
+│       ├── logs.py
+│       ├── service.py
+│       └── status_checker.py
+├── conf/
+│   └── janitorr-gui.service
+├── requirements.txt
+├── run.py
+└── screenshots/
+    ├── config.png
+    ├── dashboard.png
+    └── login.png
+```
