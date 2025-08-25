@@ -42,6 +42,10 @@ The app will be available at http://localhost:5000
 
 > [!NOTE]
 > An example systemd service is provided in [janitorr-gui.service](/conf/janitorr-gui.service) file. The service example assumes that Janitorr is running as a `janitorr.service` systemd service.
+> [!WARNING]  
+> This application is not designed, tested, or hardened for exposure to the public internet.  
+> If you choose to make it accessible from the internet, you do so at your own risk.
+
 
 ## Environment Variables
 
