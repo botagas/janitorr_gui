@@ -41,7 +41,7 @@ A simple Flask-based GUI for Janitorr to view scheduled media deletions and mana
 The app will be available at http://localhost:5000
 
 > [!NOTE]
-> An example systemd service is provided in [janitorr-gui.service](/conf/janitorr-gui.service) file.
+> An example systemd service is provided in [janitorr-gui.service](/conf/janitorr-gui.service) file. The service example assumes that Janitorr is running as a `janitorr.service` systemd service.
 
 ## Environment Variables
 
