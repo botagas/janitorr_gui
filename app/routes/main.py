@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import yaml
+import difflib
 import requests
 from flask import Blueprint, render_template, current_app, jsonify, request, abort, flash, redirect, url_for, send_file
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
@@ -222,7 +223,8 @@ def index():
                          recent_logs=recent_logs,
                          system_status=system_status,
                          jellyfin_enabled=jellyfin_enabled,
-                         deletion_config=deletion_config)
+                         deletion_config=deletion_config,
+                         jellyfin_available=system_status.jellyfin_available)
 
 @main_bp.route('/api/media/<item_id>/info')
 @login_required
@@ -310,7 +312,6 @@ def config():
         try:
             # Handle YAML text area submission
             if 'config' in request.form:
-                import yaml
                 config_text = request.form.get('config')
                 config_data = yaml.safe_load(config_text)
                 config_parser.write_config(config_data)
@@ -325,7 +326,6 @@ def config():
     # Format config as YAML for display
     config_yaml = ''
     if config_data:
-        import yaml
         config_yaml = yaml.dump(config_data, default_flow_style=False, sort_keys=False, indent=2)
     
     return render_template('config_tabs.html', 
@@ -444,9 +444,11 @@ def update_config_section():
                     current[k] = {}
                 current = current[k]
             
-            # Handle checkbox values
-            if value == 'on':
+            # Handle checkbox and boolean string values robustly
+            if str(value).lower() == 'on' or str(value).lower() == 'true':
                 current[keys[-1]] = True
+            elif str(value).lower() == 'false':
+                current[keys[-1]] = False
             elif key in request.form and value == '':
                 # Don't update empty values unless explicitly set
                 continue
@@ -476,13 +478,46 @@ def preview_config_changes():
     section = request.form.get('section')
     
     try:
+        # --- Unified preview logic: handle YAML textarea or section form ---
+        if 'config' in request.form:
+            # YAML textarea diff preview
+            config_text = request.form.get('config', '')
+            # Get current config as Python object
+            config, config_error = config_parser.read_config()
+            if not config:
+                config = {}
+            # Normalize both current and new configs by loading and dumping
+            try:
+                new_config_obj = yaml.safe_load(config_text) if config_text.strip() else {}
+            except Exception as e:
+                return jsonify({
+                    'success': False,
+                    'error': f'YAML parse error in new config: {str(e)}'
+                }), 400
+            # Dump both as pretty YAML for diffing
+            current_yaml = yaml.dump(config, default_flow_style=False, sort_keys=False, indent=2)
+            new_yaml = yaml.dump(new_config_obj, default_flow_style=False, sort_keys=False, indent=2)
+            # Generate diff
+            diff = list(difflib.unified_diff(
+                current_yaml.splitlines(),
+                new_yaml.splitlines(),
+                fromfile='Current',
+                tofile='New',
+                lineterm=''
+            ))
+            return jsonify({
+                'success': True,
+                'current_yaml': current_yaml,
+                'new_yaml': new_yaml,
+                'diff': diff
+            })
+        # --- Section form preview logic (as before) ---
         # Handle GUI-specific settings preview
         if section == 'gui-service':
             # GUI config was already read above
             # Create a copy for modifications
             import copy
             new_gui_config = copy.deepcopy(gui_config_data)
-            
             # Apply GUI setting changes
             for key, value in request.form.items():
                 if key in ['section']:  # Skip non-config fields
@@ -490,39 +525,31 @@ def preview_config_changes():
                 if key.startswith('gui.'):
                     keys = key.split('.')
                     current = new_gui_config
-                    
                     # Navigate/create nested structure
                     for k in keys[:-1]:
                         if k not in current:
                             current[k] = {}
                         current = current[k]
-                    
                     current[keys[-1]] = value
-            
             # Convert to JSON for comparison
             import json
             new_json = json.dumps(new_gui_config, indent=2, sort_keys=True)
-            
             return jsonify({
                 'success': True,
                 'new_yaml': f"# GUI Configuration (stored as JSON)\n{new_json}"
             })
-        
         # Handle Janitorr configuration preview
         # Read current config
         config, config_error = config_parser.read_config()
         if not config:
             config = {}
-        
         # Create a copy for modifications
         import copy
         new_config = copy.deepcopy(config)
-        
         # Apply the same logic as update_config_section but don't save
         for key, value in request.form.items():
             if key in ['section']:  # Skip non-config fields
                 continue
-                
             # Special handling for media deletion expiration fields
             if key.endswith('.movie-expiration.default') or key.endswith('.season-expiration.default'):
                 # Handle the special case of media deletion maps
@@ -530,7 +557,6 @@ def preview_config_changes():
                     new_config['application'] = {}
                 if 'media-deletion' not in new_config['application']:
                     new_config['application']['media-deletion'] = {}
-                
                 if 'movie-expiration.default' in key:
                     if 'movie-expiration' not in new_config['application']['media-deletion']:
                         new_config['application']['media-deletion']['movie-expiration'] = {}
@@ -544,11 +570,9 @@ def preview_config_changes():
                     for percentage in [5, 10, 15, 20]:
                         new_config['application']['media-deletion']['season-expiration'][percentage] = value
                 continue
-            
             # Skip GUI-specific settings for Janitorr config preview
             if key.startswith('gui.'):
                 continue
-                
             # Handle nested keys but be smart about certain keys that should remain as single keys
             if key == 'logging.level.com.github.schaka':
                 # Special case: this should be treated as a path but 'com.github.schaka' is a single key
@@ -566,35 +590,30 @@ def preview_config_changes():
                     new_config['logging']['threshold'] = {}
                 new_config['logging']['threshold']['file'] = value
                 continue
-                
             # Handle other nested keys like 'clients.jellyfin.url'
             keys = key.split('.')
             current = new_config
-            
             # Navigate/create nested structure
             for k in keys[:-1]:
                 if k not in current:
                     current[k] = {}
                 current = current[k]
-            
             # Handle checkbox values
-            if value == 'on':
+            if str(value).lower() == 'on' or str(value).lower() == 'true':
                 current[keys[-1]] = True
+            elif str(value).lower() == 'false':
+                current[keys[-1]] = False
             elif key in request.form and value == '':
                 # Don't update empty values unless explicitly set
                 continue
             else:
                 current[keys[-1]] = value
-        
         # Convert both configs to YAML for comparison
-        import yaml
         new_yaml = yaml.dump(new_config, default_flow_style=False, sort_keys=False, indent=2)
-        
         return jsonify({
             'success': True,
             'new_yaml': new_yaml
         })
-        
     except Exception as e:
         return jsonify({
             'success': False,

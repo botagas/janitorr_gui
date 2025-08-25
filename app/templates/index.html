@@ -77,7 +77,7 @@
 <div class="deletion-timeline">
     {% for date, items in deletions|dictsort %}
     <div class="deletion-group">
-        <div class="media-container" id="media-container">
+        <div class="media-container" {% if not jellyfin_available %} list-view{% endif %} id="media-container">
             <div class="content-section">
                 <div class="media-header">
                     <h2>Media Scheduled for Deletion</h2>
@@ -86,14 +86,24 @@
                     <h3>{{ date }}</h3>
                 </div>
                 <div class="display-controls">
-                    <div class="view-toggle">
-                        <button id="grid-view-btn" class="view-btn active" title="Grid View">
-                            <i class="fas fa-th-large"></i>
-                        </button>
-                        <button id="list-view-btn" class="view-btn" title="List View">
-                            <i class="fas fa-list"></i>
-                        </button>
-                    </div>
+                        <div class="view-toggle">
+                            {% if jellyfin_available %}
+                            <button id="grid-view-btn" class="view-btn active" title="Grid View">
+                                <i class="fas fa-th-large"></i>
+                            </button>
+                            <button id="list-view-btn" class="view-btn" title="List View">
+                                <i class="fas fa-list"></i>
+                            </button>
+                            </div>
+                            {% else %}
+                            <button id="list-view-btn" class="view-btn" title="List View">
+                                <i class="fas fa-list"></i>
+                            </button>
+                            </div>
+                            <div class="alert alert-warning">
+                                Thumbnails and grid-view unavailable (Jellyfin offline)
+                            </div>
+                            {% endif %}
                     <div class="search-bar-row">
                         <input type="text" id="media-search" class="media-search" placeholder="Search media..." aria-label="Search media">
                     </div>
@@ -106,21 +116,23 @@
                         data-age="{% if item.age_days is not none %}{{ item.age_days }}{% else %}0{% endif %}"
                         data-media-type="{% if media_info.get(item.title) %}{{ media_info[item.title].info.Type }}{% else %}Unknown{% endif %}"
                         {% if media_info.get(item.title, {}).get('image_path') and media_info[item.title].info.Id %}data-media-id="{{ media_info[item.title].info.Id }}"{% endif %}>
-                        <div class="media-thumbnail">
-                            <div class="no-thumbnail">Loading...</div>
-                            <!-- Overlays are positioned relative to the thumbnail -->
-                            <div class="countdown-overlay">
-                                {% if item.days_until_deletion is not none %}
-                                    {% if item.days_until_deletion > 0 %}{{ item.days_until_deletion }} d. left
-                                    {% elif item.days_until_deletion == 0 %}Today!
-                                    {% else %}{{ item.days_until_deletion|abs }} d. over
+                        {% if jellyfin_available %}
+                            <div class="media-thumbnail">
+                                <div class="no-thumbnail">Loading...</div>
+                                <!-- Overlays are positioned relative to the thumbnail -->
+                                <div class="countdown-overlay">
+                                    {% if item.days_until_deletion is not none %}
+                                        {% if item.days_until_deletion > 0 %}{{ item.days_until_deletion }} d. left
+                                        {% elif item.days_until_deletion == 0 %}Today!
+                                        {% else %}{{ item.days_until_deletion|abs }} d. over
+                                        {% endif %}
+                                    {% else %}Unknown
                                     {% endif %}
-                                {% else %}Unknown
-                                {% endif %}
+                                </div>
+                                <div class="age-overlay">{{ item.age_days if item.age_days is not none else 0 }} d. old</div>
+                                <div class="added-overlay">Added on {{ item.added_date }}</div>
                             </div>
-                            <div class="age-overlay">{{ item.age_days if item.age_days is not none else 0 }} d. old</div>
-                            <div class="added-overlay">Added on {{ item.added_date }}</div>
-                        </div>
+                        {% endif %}
                         <div class="media-info">
                             <h3 class="media-title">{{ item.title }}</h3>
                             <div class="media-stats">

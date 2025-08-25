@@ -7,7 +7,7 @@ A simple Flask-based GUI for Janitorr to view scheduled media deletions and mana
 
 - View scheduled media deletions from Janitorr in a user-friendly dashboard
 - Edit Janitorr configuration directly from the web interface (YAML editor and tabbed forms)
-- Comparison tool for changes done in config page
+- Comparison tool for difference preview on value change
 - LDAP and legacy authentication
 - Auto-refresh dashboard for up-to-date status
 - Made to work as a systemd service

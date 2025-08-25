@@ -27,7 +27,7 @@
         
         <!-- YAML Editor Tab -->
         <div class="tab-content active" id="yaml-tab">
-            <form method="POST" action="{{ url_for('main.config') }}">
+            <form id="yamlEditorForm" method="POST" action="#">
                 <div class="form-group">
                     <label for="config">Configuration (YAML format):</label>
                     <textarea name="config" id="config" rows="25" class="form-control yaml-editor">{{ config_yaml }}</textarea>
@@ -128,6 +128,11 @@
                 
                 <div class="auth-section" id="ldapAuthSection">
                     <h5>LDAP Configuration</h5>
+                    <!-- Configuration validation warnings -->
+                    <div id="authConfigWarning" class="alert alert-warning" style="display: none;">
+                        <strong>Configuration Notice:</strong>
+                        <span id="authWarningText"></span>
+                    </div>
                     <div class="form-group">
                         <label>
                             <input type="checkbox" name="gui.ldap.enabled" {% if gui_config and gui_config.get('gui', {}).get('ldap', {}).get('enabled') %}checked{% endif %}>
@@ -227,12 +232,6 @@
                     </div>
                 </div>
                 
-                <!-- Configuration validation warnings -->
-                <div id="authConfigWarning" class="alert alert-warning" style="display: none;">
-                    <strong>Configuration Notice:</strong>
-                    <span id="authWarningText"></span>
-                </div>
-                
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save GUI Config</button>
                 </div>
@@ -281,7 +280,8 @@
                 <h3>Jellyfin Configuration</h3>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" name="clients.jellyfin.enabled" {% if config and config.get('clients', {}).get('jellyfin', {}).get('enabled') %}checked{% endif %}>
+                        <input type="checkbox" name="clients.jellyfin.enabled" value="true" {% if config and config.get('clients', {}).get('jellyfin', {}).get('enabled') %}checked{% endif %}>
+                        <input type="hidden" name="clients.jellyfin.enabled" value="false">
                         Enable Jellyfin Integration
                     </label>
                 </div>
@@ -297,7 +297,8 @@
                 </div>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" name="clients.jellyfin.delete" {% if config and config.get('clients', {}).get('jellyfin', {}).get('delete') %}checked{% endif %}>
+                        <input type="checkbox" name="clients.jellyfin.delete" value="true" {% if config and config.get('clients', {}).get('jellyfin', {}).get('delete') %}checked{% endif %}>
+                        <input type="hidden" name="clients.jellyfin.delete" value="false">
                         Enable Deletion
                     </label>
                 </div>
@@ -314,7 +315,8 @@
                 <h3>Jellystat Configuration</h3>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" name="clients.jellystat.enabled" {% if config and config.get('clients', {}).get('jellystat', {}).get('enabled') %}checked{% endif %}>
+                        <input type="checkbox" name="clients.jellystat.enabled" value="true" {% if config and config.get('clients', {}).get('jellystat', {}).get('enabled') %}checked{% endif %}>
+                        <input type="hidden" name="clients.jellystat.enabled" value="false">
                         Enable Jellystat Integration
                     </label>
                 </div>
@@ -343,7 +345,8 @@
                     <input type="hidden" name="section" value="sonarr">
                     <div class="form-group">
                         <label>
-                            <input type="checkbox" name="clients.sonarr.enabled" {% if config and config.get('clients', {}).get('sonarr', {}).get('enabled') %}checked{% endif %}>
+                            <input type="checkbox" name="clients.sonarr.enabled" value="true" {% if config and config.get('clients', {}).get('sonarr', {}).get('enabled') %}checked{% endif %}>
+                            <input type="hidden" name="clients.sonarr.enabled" value="false">
                             Enable Sonarr
                         </label>
                     </div>
@@ -369,7 +372,8 @@
                     <input type="hidden" name="section" value="radarr">
                     <div class="form-group">
                         <label>
-                            <input type="checkbox" name="clients.radarr.enabled" {% if config and config.get('clients', {}).get('radarr', {}).get('enabled') %}checked{% endif %}>
+                            <input type="checkbox" name="clients.radarr.enabled" value="true" {% if config and config.get('clients', {}).get('radarr', {}).get('enabled') %}checked{% endif %}>
+                            <input type="hidden" name="clients.radarr.enabled" value="false">
                             Enable Radarr
                         </label>
                     </div>
@@ -397,13 +401,15 @@
                 <h3>Media Deletion Settings</h3>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" name="application.dry-run" {% if config and config.get('application', {}).get('dry-run') %}checked{% endif %}>
+                        <input type="checkbox" name="application.dry-run" value="true" {% if config and config.get('application', {}).get('dry-run') %}checked{% endif %}>
+                        <input type="hidden" name="application.dry-run" value="false">
                         Dry Run Mode (Test only, don't actually delete)
                     </label>
                 </div>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" name="application.media-deletion.enabled" {% if config and config.get('application', {}).get('media-deletion', {}).get('enabled') %}checked{% endif %}>
+                        <input type="checkbox" name="application.media-deletion.enabled" value="true" {% if config and config.get('application', {}).get('media-deletion', {}).get('enabled') %}checked{% endif %}>
+                        <input type="hidden" name="application.media-deletion.enabled" value="false">
                         Enable Media Deletion
                     </label>
                 </div>
@@ -1358,6 +1364,45 @@
 </style>
 
 <script>
+// --- YAML Editor Diff Preview Handler ---
+document.addEventListener('DOMContentLoaded', function() {
+    const yamlForm = document.getElementById('yamlEditorForm');
+    if (yamlForm) {
+        yamlForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            showYamlDiffPreview(yamlForm);
+        });
+    }
+});
+
+async function showYamlDiffPreview(form) {
+    const configValue = form.querySelector('textarea[name="config"]').value;
+    const formData = new FormData();
+    formData.append('config', configValue);
+    const response = await fetch('/config/preview', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await response.json();
+    if (data.success) {
+        // Use the same modal and diff rendering as section forms
+        // Set up window.currentDiffData for modal logic
+        window.currentDiffData = {
+            currentConfig: data.current_yaml,
+            newConfig: data.new_yaml,
+            diffAnalysis: analyzeDifferences(data.current_yaml, data.new_yaml)
+        };
+        updateDiffDisplay();
+        if (window.currentDiffData.diffAnalysis.changes.length > 0) {
+            displayDiffSummary(window.currentDiffData.diffAnalysis);
+        }
+        window.currentForm = form;
+        document.getElementById('sectionInfo').textContent = 'Editing full YAML configuration';
+        document.getElementById('yamlDiffModal').style.display = 'block';
+    } else {
+        alert('Error generating diff: ' + (data.error || 'Unknown error'));
+    }
+}
 // Tab switching functionality
 document.addEventListener('DOMContentLoaded', function() {
     const tabButtons = document.querySelectorAll('.tab-button');
@@ -1924,7 +1969,7 @@ function validateAuthConfig() {
         }
     } else {
         // Configuration is consistent - show helpful info
-        warning = `Authentication mode "${getAuthModeLabel(authMode)}" will be auto-detected based on your enabled authentication methods.`;
+        warning = `Authentication mode "${getAuthModeLabel(authMode)}" was auto-detected based on your enabled authentication methods.`;
         warningDiv.className = 'alert alert-info';
     }
     
