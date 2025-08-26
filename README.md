@@ -95,9 +95,11 @@ Configuration is possible via separate tabs or YAML editor right in the dashboar
 - [ ] Add configuration tab for Jellyseerr (API key, base URL, etc.)
 - [ ] Fetch users from Jellyseerr and display users with missing Discord IDs
 - [ ] Allow admin to enter and update Discord IDs for users, saving via Jellyseerr API
+
 **Jellyfin integration:**
 - [ ] Fetch tags for leaving soon media to identify requesters
 - [ ] Use tags to determine which user requested each media item
+
 **Notification system:**
 - [ ] Send Discord notifications (via webhook or bot) to users with expiring media
 - [ ] Allow users to request extensions or contact admin
